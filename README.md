@@ -4,4 +4,4 @@ Develop a classification method to predict the mortality risk according to the i
 
 # Contacts
 
-(Manuel Andres Martinez Munoz)[https://github.com/nuelma991]: maanmartinez@utp.edu.co
+[Manuel Andres Martinez Munoz](https://github.com/nuelma991): maanmartinez@utp.edu.co
