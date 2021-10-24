@@ -1,0 +1,132 @@
+---
+title: "CoVID-19 Risk assessment"
+author: "Manuel Martinez Munoz, Jose William Martinez, Juan Camilo Martinez Munoz"
+date: "23/10/2021"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+library(tidyverse)
+library(randomForest)
+library(randomForestSRC)
+library(ggRandomForests)
+library(survival)
+library(kableExtra)
+library(caret)
+library(readr)
+library(arrow)
+library(lolR)
+library(mlr)
+library(papeR)
+```
+
+## Motivation
+
+* The resources of the healthcare system network have been insufficient before the pandemic in Colombia. 
+* Criteria for admission to the emergency department are not uniform over the country, and the use of laboratories and radiological images are highly restricted due to unavailability or restricted by auditing services.
+* Before CoVID-19, there were 100 intensive care beds units per million people.  
+
+## Motivation
+
+Early reports from Wuhan [NEJM 382(18)2020 )](https://www.nejm.org/doi/full/10.1056/NEJMoa2002032) reported a composed primary outcome of admission to an intensive care unit (ICU), the use of mechanical ventilation, or death of 6.3% of cases. 
+
+* Mean time from onset of symptoms to ventilatory support of 9.3 days.
+* Mean time from onset of symptoms to death of 15.3 days.
+
+
+
+## Data
+
+```{r}
+Covid_DF_train = read_parquet("Data/Covid_DF_train.parquet")
+Covid_DF_train$Defuncion <- factor(Covid_DF_train$Defuncion)
+Covid_DF_test = read_parquet('Data/Covid_DF_test.parquet')
+y_test <- factor(Covid_DF_test$Defuncion)
+
+```
+
+
+```{r Table1, echo = T}
+kbl(head(Covid_DF_train, 10), booktabs = T) %>% 
+  kable_material(c("striped", "hover"), full_width = F) %>% 
+  scroll_box(width = "95%", height = "350px")
+```
+
+
+## Logistic Regression model
+
+
+```{r}
+log_model = glm(Defuncion ~ ., data = Covid_DF_train, 
+                family = "binomial")
+log_model_summary <- prettify(summary(log_model)) 
+```
+
+
+```{r echo=TRUE}
+kbl(log_model_summary, booktabs = T) %>%
+  kable_material(c('striped', 'hover'), full_width = F,
+                 font_size = 12) %>%
+  scroll_box(width = "95%", height = "350px")
+```
+
+
+
+## Logistic model Predictions
+```{r echo=TRUE}
+time0_class_pred = Sys.time()
+log_model_pred = predict(log_model, Covid_DF_test, type = "response")
+time1_class_pred = Sys.time()
+time1_class_pred - time0_class_pred
+log_model_pred <- factor(if_else(log_model_pred > 0.5, 1, 0))
+
+confuma_logistic = confusionMatrix(data = log_model_pred, 
+                                   reference = y_test)
+confuma_logistic[["table"]] 
+```
+
+
+
+## Logistic model
+```{r}
+perform_logistic = data.frame(confuma_logistic[["byClass"]])
+colnames(perform_logistic) = c( "Value")
+kbl(t(perform_logistic), booktabs = T) %>%
+  kable_material(c("striped", "hover"), full_width = F) %>% 
+  scroll_box(width = "95%", height = "150px")
+```
+
+
+
+## Centroid Model
+```{r Model, echo = T}
+classifier = readRDS("Models/classifier.rds")
+test_df = read_parquet("Data/test_df.parquet")
+X_test <- test_df[ , -c(which(names(test_df) == 'Defuncion', 
+                              arr.ind = T))]
+y_test <- factor(test_df$Defuncion)
+
+time0_class_pred = Sys.time()
+
+y_hat <- predict(classifier, X_test)
+y_hat <- factor(y_hat)
+
+time1_class_pred = Sys.time()
+
+time1_class_pred - time0_class_pred
+
+```
+
+## Confusion Matrix Centroids
+```{r  ConfM, echo = T}
+confuma_centroids = confusionMatrix(data = y_hat, reference = y_test)
+confuma_centroids[["table"]]
+confuma_centroids[["byClass"]]
+
+```
+
+
+
+
+
